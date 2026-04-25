@@ -55,3 +55,17 @@ class QRCodeController:
         await self.__qr_code_service.update(qr_token, url)
 
         return status.HTTP_200_OK, ResponseOK(message="更新成功")
+
+    async def delete(self, qr_token: str) -> tuple[int, dict]:
+        """
+        根據提供的 QR code token 刪除 QR code 資訊
+
+        Args:
+            qr_token (str): QR code token
+
+        Returns:
+            tuple[int, dict]: HTTP 狀態碼和回應資料
+        """
+        await self.__qr_code_service.delete(qr_token)
+
+        return status.HTTP_200_OK, ResponseOK(message="刪除成功")

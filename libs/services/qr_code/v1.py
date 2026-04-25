@@ -82,3 +82,16 @@ class QRCodeService:
 
         if not result:
             raise DataNotFoundError(message="QR code not found")
+
+    async def delete(self, qr_token: str) -> None:
+        """
+        根據提供的 QR code token 刪除 QR code 資訊
+
+        Args:
+            qr_token (str): QR code token
+        """
+        # 刪除 QR code 資訊
+        result = await self.__qr_code_repository.delete(qr_token)
+
+        if not result:
+            raise DataNotFoundError(message="QR code not found")

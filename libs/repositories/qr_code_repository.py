@@ -93,3 +93,27 @@ class QRCodeRepository:
         await self.__session.flush()
 
         return True
+
+    async def delete(self, qr_token: str) -> bool:
+        """
+        根據提供的 QR code token 刪除 QR code 資訊
+
+        Args:
+            qr_token (str): QR code token
+
+        Returns:
+            bool: 刪除是否成功
+        """
+        # 使用 SELECT ... FOR UPDATE 鎖定資料列，確保在刪除過程中不會有其他交易修改同一筆資料
+        stmt = select(UrlMapping).where(UrlMapping.token == qr_token).with_for_update()
+        result: Result = await self.__session.execute(stmt)
+        url_mapping: UrlMapping | None = result.scalar_one_or_none()
+
+        if url_mapping is None:
+            return False
+
+        # 刪除資料列
+        await self.__session.delete(url_mapping)
+        await self.__session.flush()
+
+        return True

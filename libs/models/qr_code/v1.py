@@ -223,3 +223,23 @@ QR_UPDATE_RESPONSE_EXAMPLES = generate_response_examples(
         },
     ]
 )
+
+
+class QRDeletePathRequest(BaseModel):
+    qr_token: str = Field(..., title="要刪除的 QR code 的 token")
+
+
+QR_DELETE_RESPONSE_EXAMPLES = generate_response_examples(
+    [
+        {
+            "status_code": status.HTTP_200_OK,
+            "response_name": "success",
+            "example": ResponseOK.model_json_schema()["example"],
+        },
+        {
+            "status_code": status.HTTP_404_NOT_FOUND,
+            "response_name": "not_found",
+            "example": ResponseNotFound.model_json_schema()["example"],
+        },
+    ]
+)
