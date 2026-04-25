@@ -9,6 +9,7 @@ import uvicorn
 import uvloop
 from fastapi import FastAPI, Request, Response, status
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -38,6 +39,12 @@ logging.basicConfig(
 app = FastAPI(
     title="QR Code Generator API",
     docs_url=ApiConfig.DOCS_URL,
+)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 app.state.limiter = RateLimiter.limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)

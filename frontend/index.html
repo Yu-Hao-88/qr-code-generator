@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QR Code Generator</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #232635;
+      --border: #2e3148;
+      --accent: #6c63ff;
+      --accent-hover: #7c74ff;
+      --success: #22c55e;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --text: #e2e8f0;
+      --text-muted: #8892a4;
+      --radius: 12px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 24px 16px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #6c63ff, #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 6px;
+    }
+
+    header p { color: var(--text-muted); font-size: 0.9rem; }
+
+    .config-bar {
+      max-width: 900px;
+      margin: 0 auto 28px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 16px;
+    }
+
+    .config-bar label { color: var(--text-muted); font-size: 0.82rem; white-space: nowrap; }
+
+    .config-bar input {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 12px;
+      color: var(--text);
+      font-size: 0.88rem;
+      font-family: monospace;
+    }
+
+    .config-bar input:focus { outline: none; border-color: var(--accent); }
+
+    .grid {
+      max-width: 900px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 18px;
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .method-badge {
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 4px;
+      letter-spacing: 0.5px;
+      font-family: monospace;
+    }
+
+    .method-post  { background: #14532d; color: #4ade80; }
+    .method-get   { background: #1e3a5f; color: #60a5fa; }
+    .method-put   { background: #4a2c0a; color: #fb923c; }
+    .method-delete{ background: #4c0519; color: #f87171; }
+
+    .card-header h2 { font-size: 0.95rem; font-weight: 600; }
+    .card-header .endpoint { font-size: 0.75rem; color: var(--text-muted); font-family: monospace; margin-left: auto; }
+
+    .card-body { padding: 18px; }
+
+    .form-group { margin-bottom: 14px; }
+
+    .form-group label {
+      display: block;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-bottom: 5px;
+      font-weight: 500;
+    }
+
+    .form-group input {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 9px 12px;
+      color: var(--text);
+      font-size: 0.88rem;
+      transition: border-color 0.15s;
+    }
+
+    .form-group input:focus { outline: none; border-color: var(--accent); }
+    .form-group input::placeholder { color: var(--text-muted); }
+
+    button {
+      width: 100%;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+    }
+
+    button:active { transform: scale(0.98); }
+
+    .btn-primary  { background: var(--accent);  color: #fff; }
+    .btn-primary:hover  { background: var(--accent-hover); }
+    .btn-success  { background: #15803d; color: #fff; }
+    .btn-success:hover  { background: #16a34a; }
+    .btn-warning  { background: #b45309; color: #fff; }
+    .btn-warning:hover  { background: #d97706; }
+    .btn-danger   { background: #b91c1c; color: #fff; }
+    .btn-danger:hover   { background: #dc2626; }
+    .btn-info     { background: #1d4ed8; color: #fff; }
+    .btn-info:hover     { background: #2563eb; }
+
+    .result {
+      margin-top: 14px;
+      border-radius: 8px;
+      overflow: hidden;
+      display: none;
+    }
+
+    .result.visible { display: block; }
+
+    .result-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .result-header.ok   { background: #14532d; color: #4ade80; }
+    .result-header.err  { background: #4c0519; color: #f87171; }
+
+    .result pre {
+      background: var(--bg);
+      padding: 12px;
+      font-size: 0.78rem;
+      font-family: monospace;
+      white-space: pre-wrap;
+      word-break: break-all;
+      color: var(--text);
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .qr-image-result {
+      margin-top: 14px;
+      text-align: center;
+      display: none;
+    }
+
+    .qr-image-result.visible { display: block; }
+
+    .qr-image-result img {
+      max-width: 180px;
+      border-radius: 8px;
+      border: 2px solid var(--border);
+    }
+
+    .qr-image-result .token-copy {
+      margin-top: 10px;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .token-box {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 10px;
+      margin-top: 6px;
+    }
+
+    .token-box code {
+      flex: 1;
+      font-family: monospace;
+      font-size: 0.78rem;
+      word-break: break-all;
+    }
+
+    .token-box button {
+      width: auto;
+      padding: 4px 10px;
+      font-size: 0.72rem;
+      border-radius: 4px;
+    }
+
+    .info-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+    .info-table td { padding: 6px 10px; border-bottom: 1px solid var(--border); }
+    .info-table td:first-child { color: var(--text-muted); width: 40%; }
+    .info-table tr:last-child td { border-bottom: none; }
+
+    .redirect-section {
+      max-width: 900px;
+      margin: 20px auto 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .redirect-section .card-header { justify-content: flex-start; }
+
+    .redirect-body { padding: 18px; display: flex; gap: 10px; align-items: flex-end; }
+
+    .redirect-body .form-group { flex: 1; margin-bottom: 0; }
+
+    .redirect-body button { width: auto; min-width: 80px; }
+
+    .redirect-link {
+      margin-top: 12px;
+      padding: 10px 14px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-family: monospace;
+      font-size: 0.82rem;
+      word-break: break-all;
+      display: none;
+    }
+
+    .redirect-link.visible { display: block; }
+
+    .redirect-link a { color: #60a5fa; text-decoration: none; }
+    .redirect-link a:hover { text-decoration: underline; }
+
+    .spinner {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>QR Code Generator</h1>
+    <p>串接後端 API 的操作介面</p>
+  </header>
+
+  <div class="config-bar">
+    <label>API Base URL</label>
+    <input id="baseUrl" type="text" value="http://localhost:8000" placeholder="http://localhost:8000" />
+  </div>
+
+  <div class="grid">
+
+    <!-- 建立 QR Code -->
+    <div class="card">
+      <div class="card-header">
+        <span class="method-badge method-post">POST</span>
+        <h2>建立 QR Code</h2>
+        <span class="endpoint">/api/qr_code/v1</span>
+      </div>
+      <div class="card-body">
+        <div class="form-group">
+          <label>URL *</label>
+          <input id="create-url" type="url" placeholder="https://example.com" />
+        </div>
+        <div class="form-group">
+          <label>過期時間（選填）</label>
+          <input id="create-expires" type="datetime-local" />
+        </div>
+        <button class="btn-primary" onclick="createQR()">建立</button>
+
+        <div class="qr-image-result" id="create-image-result">
+          <img id="create-qr-img" src="" alt="QR Code" />
+          <div class="token-copy">QR Token：</div>
+          <div class="token-box">
+            <code id="create-token-text"></code>
+            <button class="btn-primary" onclick="copyToken('create-token-text')">複製</button>
+          </div>
+        </div>
+        <div class="result" id="create-result">
+          <div class="result-header" id="create-result-header"></div>
+          <pre id="create-result-body"></pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- 查詢 QR Code 資訊 -->
+    <div class="card">
+      <div class="card-header">
+        <span class="method-badge method-get">GET</span>
+        <h2>查詢 QR Code 資訊</h2>
+        <span class="endpoint">/api/qr_code/v1/{token}</span>
+      </div>
+      <div class="card-body">
+        <div class="form-group">
+          <label>QR Token *</label>
+          <input id="info-token" type="text" placeholder="貼上 token" />
+        </div>
+        <button class="btn-info" onclick="getInfo()">查詢</button>
+        <div class="result" id="info-result">
+          <div class="result-header" id="info-result-header"></div>
+          <div id="info-result-body"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 取得 QR Code 圖片 -->
+    <div class="card">
+      <div class="card-header">
+        <span class="method-badge method-get">GET</span>
+        <h2>取得 QR Code 圖片</h2>
+        <span class="endpoint">/api/qr_code/v1/{token}/image</span>
+      </div>
+      <div class="card-body">
+        <div class="form-group">
+          <label>QR Token *</label>
+          <input id="image-token" type="text" placeholder="貼上 token" />
+        </div>
+        <button class="btn-info" onclick="getImage()">取得圖片</button>
+        <div class="qr-image-result" id="image-result">
+          <img id="image-qr-img" src="" alt="QR Code" />
+          <div style="margin-top:10px;">
+            <a id="image-download" href="#" download="qrcode.png">
+              <button class="btn-success" style="width:auto;padding:6px 16px;font-size:0.8rem;">下載圖片</button>
+            </a>
+          </div>
+        </div>
+        <div class="result" id="image-error">
+          <div class="result-header err">錯誤</div>
+          <pre id="image-error-body"></pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- 更新 QR Code -->
+    <div class="card">
+      <div class="card-header">
+        <span class="method-badge method-put">PUT</span>
+        <h2>更新 QR Code</h2>
+        <span class="endpoint">/api/qr_code/v1/{token}</span>
+      </div>
+      <div class="card-body">
+        <div class="form-group">
+          <label>QR Token *</label>
+          <input id="update-token" type="text" placeholder="貼上 token" />
+        </div>
+        <div class="form-group">
+          <label>新 URL *</label>
+          <input id="update-url" type="url" placeholder="https://new-url.com" />
+        </div>
+        <button class="btn-warning" onclick="updateQR()">更新</button>
+        <div class="result" id="update-result">
+          <div class="result-header" id="update-result-header"></div>
+          <pre id="update-result-body"></pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- 刪除 QR Code -->
+    <div class="card">
+      <div class="card-header">
+        <span class="method-badge method-delete">DELETE</span>
+        <h2>刪除 QR Code</h2>
+        <span class="endpoint">/api/qr_code/v1/{token}</span>
+      </div>
+      <div class="card-body">
+        <div class="form-group">
+          <label>QR Token *</label>
+          <input id="delete-token" type="text" placeholder="貼上 token" />
+        </div>
+        <button class="btn-danger" onclick="deleteQR()">刪除</button>
+        <div class="result" id="delete-result">
+          <div class="result-header" id="delete-result-header"></div>
+          <pre id="delete-result-body"></pre>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 重新導向連結 -->
+  <div class="redirect-section">
+    <div class="card-header">
+      <span class="method-badge method-get">GET</span>
+      <h2>重新導向連結</h2>
+      <span class="endpoint">/api/redirect/v1/{token}</span>
+    </div>
+    <div style="padding:18px;">
+      <div style="display:flex;gap:10px;align-items:flex-end;">
+        <div class="form-group" style="flex:1;margin-bottom:0;">
+          <label>QR Token *</label>
+          <input id="redirect-token" type="text" placeholder="貼上 token" />
+        </div>
+        <button class="btn-info" style="width:auto;min-width:100px;" onclick="buildRedirectLink()">產生連結</button>
+      </div>
+      <div class="redirect-link" id="redirect-link-box">
+        導向連結：<a id="redirect-link-a" href="#" target="_blank" rel="noopener"></a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const base = () => document.getElementById('baseUrl').value.replace(/\/$/, '');
+
+    function showResult(id, headerId, bodyId, ok, statusCode, data) {
+      const el = document.getElementById(id);
+      const header = document.getElementById(headerId);
+      const body = document.getElementById(bodyId);
+      el.classList.add('visible');
+      header.className = 'result-header ' + (ok ? 'ok' : 'err');
+      header.textContent = ok ? `✓ ${statusCode}` : `✗ ${statusCode}`;
+      body.textContent = JSON.stringify(data, null, 2);
+    }
+
+    function setLoading(btn, loading) {
+      if (loading) {
+        btn.disabled = true;
+        btn._orig = btn.innerHTML;
+        btn.innerHTML = '<span class="spinner"></span>處理中…';
+      } else {
+        btn.disabled = false;
+        btn.innerHTML = btn._orig;
+      }
+    }
+
+    async function createQR() {
+      const url = document.getElementById('create-url').value.trim();
+      const expires = document.getElementById('create-expires').value;
+      if (!url) { alert('請填寫 URL'); return; }
+
+      const btn = event.currentTarget;
+      setLoading(btn, true);
+
+      const body = { url };
+      if (expires) body.expires_at = new Date(expires).toISOString();
+
+      try {
+        const res = await fetch(`${base()}/api/qr_code/v1`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json();
+
+        if (res.ok && data?.data?.qr_token) {
+          const token = data.data.qr_token;
+          document.getElementById('create-token-text').textContent = token;
+
+          // 同時取得圖片
+          const imgRes = await fetch(`${base()}/api/qr_code/v1/${token}/image`);
+          if (imgRes.ok) {
+            const blob = await imgRes.blob();
+            const imgUrl = URL.createObjectURL(blob);
+            document.getElementById('create-qr-img').src = imgUrl;
+            document.getElementById('create-image-result').classList.add('visible');
+          }
+
+          document.getElementById('create-result').classList.remove('visible');
+        } else {
+          document.getElementById('create-image-result').classList.remove('visible');
+          showResult('create-result', 'create-result-header', 'create-result-body', false, res.status, data);
+        }
+      } catch (e) {
+        showResult('create-result', 'create-result-header', 'create-result-body', false, '網路錯誤', { error: e.message });
+      } finally {
+        setLoading(btn, false);
+      }
+    }
+
+    async function getInfo() {
+      const token = document.getElementById('info-token').value.trim();
+      if (!token) { alert('請填寫 QR Token'); return; }
+
+      const btn = event.currentTarget;
+      setLoading(btn, true);
+
+      try {
+        const res = await fetch(`${base()}/api/qr_code/v1/${encodeURIComponent(token)}`);
+        const data = await res.json();
+
+        const resultEl = document.getElementById('info-result');
+        const header = document.getElementById('info-result-header');
+        const body = document.getElementById('info-result-body');
+        resultEl.classList.add('visible');
+        header.className = 'result-header ' + (res.ok ? 'ok' : 'err');
+        header.textContent = res.ok ? `✓ ${res.status}` : `✗ ${res.status}`;
+
+        if (res.ok && data?.data) {
+          const d = data.data;
+          body.innerHTML = `<table class="info-table">
+            <tr><td>Token</td><td><code>${d.token ?? '-'}</code></td></tr>
+            <tr><td>原始 URL</td><td><a href="${d.original_url}" target="_blank" rel="noopener" style="color:#60a5fa;">${d.original_url ?? '-'}</a></td></tr>
+            <tr><td>建立時間</td><td>${d.created_at ?? '-'}</td></tr>
+            <tr><td>更新時間</td><td>${d.updated_at ?? '-'}</td></tr>
+            <tr><td>過期時間</td><td>${d.expires_at ?? '無'}</td></tr>
+            <tr><td>已刪除</td><td>${d.is_deleted ? '是' : '否'}</td></tr>
+          </table>`;
+        } else {
+          body.innerHTML = `<pre style="padding:12px;font-family:monospace;font-size:0.78rem;">${JSON.stringify(data, null, 2)}</pre>`;
+        }
+      } catch (e) {
+        showResult('info-result', 'info-result-header', 'info-result-body', false, '網路錯誤', { error: e.message });
+      } finally {
+        setLoading(btn, false);
+      }
+    }
+
+    async function getImage() {
+      const token = document.getElementById('image-token').value.trim();
+      if (!token) { alert('請填寫 QR Token'); return; }
+
+      const btn = event.currentTarget;
+      setLoading(btn, true);
+
+      document.getElementById('image-result').classList.remove('visible');
+      document.getElementById('image-error').classList.remove('visible');
+
+      try {
+        const res = await fetch(`${base()}/api/qr_code/v1/${encodeURIComponent(token)}/image`);
+
+        if (res.ok) {
+          const blob = await res.blob();
+          const imgUrl = URL.createObjectURL(blob);
+          document.getElementById('image-qr-img').src = imgUrl;
+          document.getElementById('image-download').href = imgUrl;
+          document.getElementById('image-result').classList.add('visible');
+        } else {
+          const data = await res.json();
+          document.getElementById('image-error').classList.add('visible');
+          document.getElementById('image-error-body').textContent = JSON.stringify(data, null, 2);
+        }
+      } catch (e) {
+        document.getElementById('image-error').classList.add('visible');
+        document.getElementById('image-error-body').textContent = e.message;
+      } finally {
+        setLoading(btn, false);
+      }
+    }
+
+    async function updateQR() {
+      const token = document.getElementById('update-token').value.trim();
+      const url = document.getElementById('update-url').value.trim();
+      if (!token || !url) { alert('請填寫 QR Token 與新 URL'); return; }
+
+      const btn = event.currentTarget;
+      setLoading(btn, true);
+
+      try {
+        const res = await fetch(`${base()}/api/qr_code/v1/${encodeURIComponent(token)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url }),
+        });
+        const data = await res.json();
+        showResult('update-result', 'update-result-header', 'update-result-body', res.ok, res.status, data);
+      } catch (e) {
+        showResult('update-result', 'update-result-header', 'update-result-body', false, '網路錯誤', { error: e.message });
+      } finally {
+        setLoading(btn, false);
+      }
+    }
+
+    async function deleteQR() {
+      const token = document.getElementById('delete-token').value.trim();
+      if (!token) { alert('請填寫 QR Token'); return; }
+      if (!confirm(`確定要刪除 token: ${token}？`)) return;
+
+      const btn = event.currentTarget;
+      setLoading(btn, true);
+
+      try {
+        const res = await fetch(`${base()}/api/qr_code/v1/${encodeURIComponent(token)}`, {
+          method: 'DELETE',
+        });
+        const data = await res.json();
+        showResult('delete-result', 'delete-result-header', 'delete-result-body', res.ok, res.status, data);
+      } catch (e) {
+        showResult('delete-result', 'delete-result-header', 'delete-result-body', false, '網路錯誤', { error: e.message });
+      } finally {
+        setLoading(btn, false);
+      }
+    }
+
+    function buildRedirectLink() {
+      const token = document.getElementById('redirect-token').value.trim();
+      if (!token) { alert('請填寫 QR Token'); return; }
+      const link = `${base()}/api/redirect/v1/${encodeURIComponent(token)}`;
+      const box = document.getElementById('redirect-link-box');
+      const a = document.getElementById('redirect-link-a');
+      a.href = link;
+      a.textContent = link;
+      box.classList.add('visible');
+    }
+
+    function copyToken(id) {
+      const text = document.getElementById(id).textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = event.currentTarget;
+        btn._orig2 = btn.textContent;
+        btn.textContent = '已複製！';
+        setTimeout(() => { btn.textContent = btn._orig2; }, 1500);
+      });
+    }
+  </script>
+</body>
+</html>
