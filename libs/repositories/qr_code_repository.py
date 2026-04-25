@@ -113,7 +113,7 @@ class QRCodeRepository:
             return False
 
         # 刪除資料列
-        await self.__session.delete(url_mapping)
+        url_mapping.is_deleted = True
         await self.__session.flush()
 
         return True
