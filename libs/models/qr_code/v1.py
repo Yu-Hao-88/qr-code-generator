@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from libs.models.general import (
     ResponseBadRequest,
+    ResponseNotFound,
     ResponseOK,
     generate_response_examples,
 )
@@ -133,6 +134,57 @@ QR_CREATE_RESPONSE_EXAMPLES = generate_response_examples(
             "status_code": status.HTTP_400_BAD_REQUEST,
             "response_name": "bad_request",
             "example": ResponseBadRequest.model_json_schema()["example"],
+        },
+    ]
+)
+
+
+class QRInfoRequest(BaseModel):
+    qr_token: str = Field(..., title="要查詢的 QR code 的 token")
+
+
+class QRInfo(BaseModel):
+    token: str
+    original_url: str
+    created_at: datetime
+    updated_at: datetime
+    expires_at: datetime | None
+    is_deleted: bool
+
+
+class QRInfoResponse(ResponseOK):
+    data: QRInfo
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "status": "success",
+                "code": 200,
+                "message": "操作成功",
+                "data": {
+                    "token": "example_token",
+                    "original_url": "https://www.example.com/some/path?query=123",
+                    "created_at": "2024-01-01T00:00:00Z",
+                    "updated_at": "2024-01-01T00:00:00Z",
+                    "expires_at": "2024-12-31T23:59:59Z",
+                    "is_deleted": False,
+                },
+            }
+        }
+    )
+
+
+QR_INFO_RESPONSE_EXAMPLES = generate_response_examples(
+    [
+        {
+            "status_code": status.HTTP_200_OK,
+            "response_name": "success",
+            "example": QRInfoResponse.model_json_schema()["example"],
+        },
+        {
+            "status_code": status.HTTP_404_NOT_FOUND,
+            "response_name": "not_found",
+            "example": ResponseNotFound.model_json_schema()["example"],
         },
     ]
 )

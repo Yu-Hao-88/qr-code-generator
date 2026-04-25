@@ -3,47 +3,47 @@
 import logging
 import traceback
 from collections import defaultdict
-from collections.abc import Generator
-from contextlib import contextmanager
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 
-from sqlalchemy import Engine, create_engine
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy import Engine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
 import context
 from libs.database.rds_config import RDSConfig
 
-DATABASE_URL = f"sqlite:///{context.PROJECT_ROOT_PATH}/data/qr_code.db"
+DATABASE_URL = f"sqlite+aiosqlite:///{context.PROJECT_ROOT_PATH}/data/qr_code.db"
 
 
 class SQLAlchemyConnection:
     """SQLAlchemy 連線管理類別"""
 
-    __engines = defaultdict(dict)
+    __engines: dict[str, AsyncEngine] = defaultdict(dict)
 
     @classmethod
-    @contextmanager
-    def session_scope(cls, rds_config: RDSConfig) -> Generator[Session, None, None]:
+    @asynccontextmanager
+    async def session_scope(cls, rds_config: RDSConfig) -> AsyncGenerator[AsyncSession, None]:
         """
-        提供一個上下文管理器，用於管理 SQLAlchemy 的 Session。
+        提供一個非同步上下文管理器，用於管理 SQLAlchemy 的 AsyncSession。
 
         使用方式：
         ```
-        with SQLAlchemyConnection.session_scope(RDSConfig.QR_CODE) as session:
-            session.execute("SELECT * FROM some_table")
+        async with SQLAlchemyConnection.session_scope(RDSConfig.QR_CODE) as session:
+            await session.execute("SELECT * FROM some_table")
         ```
 
         Args:
             rds_config (RDSConfig): 指定資料庫設定，從 RDSConfig 中選擇。
 
         Yields:
-            Session: SQLAlchemy 的資料庫 Session。
+            AsyncSession: SQLAlchemy 的非同步資料庫 Session。
         """
         session = cls.get_session(rds_config)
         try:
             yield session
-            session.commit()  # 自動提交
+            await session.commit()
         except Exception as e:
-            session.rollback()  # 發生異常時回滾
+            await session.rollback()
             logging.error(
                 "RDS Session error: %s\n Traceback:\n%s",
                 e,
@@ -51,52 +51,48 @@ class SQLAlchemyConnection:
             )
             raise
         finally:
-            session.close()  # 確保 Session 被正確關閉
+            await session.close()
 
     @classmethod
-    def get_session(cls, rds_config: RDSConfig) -> Session:
+    def get_session(cls, rds_config: RDSConfig) -> AsyncSession:
         """
-        取得 sqlalchemy Session
-
-        Session 是 ORM 的工作單位，應在每次操作後立即關閉或釋放。
+        取得 sqlalchemy AsyncSession
 
         Args:
             rds_config (RDSConfig): 指定資料庫設定，從 RDSConfig 中選擇。
 
         Returns:
-            Session: SQLAlchemy 的資料庫 Session。
+            AsyncSession: SQLAlchemy 的非同步資料庫 Session。
         """
-        return sessionmaker(
+        return async_sessionmaker(
             autocommit=False,
             autoflush=False,
             bind=cls.get_engine(rds_config),
+            class_=AsyncSession,
         )()
 
     @classmethod
-    def get_engine(cls, rds_config: RDSConfig) -> Engine:
+    def get_engine(cls, rds_config: RDSConfig) -> AsyncEngine:
         """
-        讀取 rds 設定並建立 sqlalchemy Engine
+        讀取 rds 設定並建立 sqlalchemy AsyncEngine
 
-        Engine 為連線池, 建立後可長期持有、重複使用
+        Engine 為連線池，建立後可長期持有、重複使用
 
         Args:
             rds_config (RDSConfig): 指定資料庫設定，從 RDSConfig 中選擇。
 
         Returns:
-            Engine: SQLAlchemy 的資料庫 Engine。
+            AsyncEngine: SQLAlchemy 的非同步資料庫 Engine。
         """
-        # 若已建立過連線就直接回傳
         if rds_config.value in cls.__engines:
             return cls.__engines[rds_config.value]
 
-        # 建立連線
-        engine = create_engine(
+        engine = create_async_engine(
             DATABASE_URL,
-            pool_pre_ping=True,  # 每次 checkout 時測試連線的可用性。
-            pool_recycle=3600,  # 每 1 小時回收一次連線，避免 MySQL 連線過期
+            pool_pre_ping=True,
+            pool_recycle=3600,
         )
 
-        # 儲存連線
         cls.__engines[rds_config.value] = engine
 
         return engine

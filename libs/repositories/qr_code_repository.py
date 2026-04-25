@@ -1,8 +1,8 @@
 """QR code 資料庫操作類別"""
 
 from fastapi import Depends
-from sqlalchemy import Result, select
-from sqlalchemy.orm import Session
+from sqlalchemy import Result, RowMapping, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from libs.database.models.url_mapping_model import UrlMapping
 from libs.database.rds_config import RDSConfig
@@ -14,7 +14,7 @@ class QRCodeRepository:
 
     def __init__(
         self,
-        session: Session = Depends(SessionProvider(RDSConfig.QR_CODE)),
+        session: AsyncSession = Depends(SessionProvider(RDSConfig.QR_CODE)),
     ) -> None:
         self.__session = session
 
@@ -29,7 +29,7 @@ class QRCodeRepository:
             bool: 是否存在
         """
         stmt = select(UrlMapping).where(UrlMapping.token == token)
-        result: Result = self.__session.execute(stmt)
+        result: Result = await self.__session.execute(stmt)
         return result.scalar_one_or_none() is not None
 
     async def create(self, url: str, token: str, expires_at: str) -> None:
@@ -47,3 +47,24 @@ class QRCodeRepository:
             expires_at=expires_at,
         )
         self.__session.add(new_mapping)
+
+    async def get_info(self, qr_token: str) -> RowMapping | None:
+        """
+        根據提供的 QR code token 查詢 QR code 資訊
+
+        Args:
+            qr_token (str): QR code token
+
+        Returns:
+            RowMapping | None: QR code 資訊，若找不到則回傳 None
+        """
+        stmt = select(
+            UrlMapping.token,
+            UrlMapping.original_url,
+            UrlMapping.created_at,
+            UrlMapping.updated_at,
+            UrlMapping.expires_at,
+            UrlMapping.is_deleted,
+        ).where(UrlMapping.token == qr_token)
+        result: Result = await self.__session.execute(stmt)
+        return result.mappings().one_or_none()

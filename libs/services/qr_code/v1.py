@@ -4,7 +4,9 @@ from datetime import datetime
 
 from fastapi import Depends
 
+from libs.models.qr_code.v1 import QRInfo
 from libs.repositories.qr_code_repository import QRCodeRepository
+from libs.utils.exceptions import DataNotFoundError
 from libs.utils.generate_token import generate_token
 
 MAX_TRIES = 5
@@ -49,3 +51,20 @@ class QRCodeService:
         await self.__qr_code_repository.create(url, token, expires_at)
 
         return token
+
+    async def get_info(self, qr_token: str) -> QRInfo:
+        """
+        根據提供的 QR code token 查詢 QR code 資訊
+
+        Args:
+            qr_token (str): QR code token
+
+        Returns:
+            QRInfo: QR code 資訊
+        """
+        result = await self.__qr_code_repository.get_info(qr_token)
+
+        if result is None:
+            raise DataNotFoundError(message="QR code not found")
+
+        return QRInfo(**result)

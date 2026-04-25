@@ -14,6 +14,7 @@ from fastapi.responses import JSONResponse
 
 import context
 import libs.models.general as general_models
+import libs.utils.exceptions as custom_exc
 from routes.qr_code.v1 import router as qr_code_router
 
 # 改用 uvloop
@@ -111,6 +112,21 @@ async def internal_server_error_handler(
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content=general_models.ResponseInternalServerError().model_dump(),
+    )
+
+
+@app.exception_handler(custom_exc.DataNotFoundError)
+async def data_not_found_error_handler(
+    request: Request,
+    exc: custom_exc.DataNotFoundError,
+) -> JSONResponse:
+    """捕捉共用例外 DataNotFoundError，統一回傳 HTTP 404"""
+    return JSONResponse(
+        status_code=status.HTTP_404_NOT_FOUND,
+        content=general_models.ResponseNotFound(
+            message=exc.message,
+            code=exc.code,
+        ).model_dump(),
     )
 
 

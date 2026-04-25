@@ -1,9 +1,16 @@
 """實作計算委刊單價 route"""
 
-from fastapi import APIRouter, Depends, Response
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Path, Response
 
 from libs.controllers.qr_code.v1 import QRCodeController
-from libs.models.qr_code.v1 import QR_CREATE_RESPONSE_EXAMPLES, QRCreateRequest
+from libs.models.qr_code.v1 import (
+    QR_CREATE_RESPONSE_EXAMPLES,
+    QR_INFO_RESPONSE_EXAMPLES,
+    QRCreateRequest,
+    QRInfoRequest,
+)
 
 # router object
 router = APIRouter(prefix="/api/qr_code/v1")
@@ -38,5 +45,37 @@ async def create_qr_code(
     """
     response.status_code, return_response = await qr_code_controller.create(
         qr_create_request.url, qr_create_request.expires_at
+    )
+    return return_response
+
+
+@router.get(
+    "/{qr_token}",
+    responses=QR_INFO_RESPONSE_EXAMPLES,
+)
+async def get_qr_info(
+    response: Response,
+    qr_info_request: Annotated[QRInfoRequest, Path()],
+    qr_code_controller: QRCodeController = Depends(QRCodeController),
+):
+    """
+    QR code 查詢 API
+
+    根據提供的 QR code token 查詢 QR code 資訊
+
+    Request:
+    - **object** data: QR code 查詢請求資料
+      - **str** qr_token: 要查詢的 QR code 的 token (必填)
+
+
+    Response:
+    - **str** status: 執行狀態 (success / fail)
+    - **int** code: 狀態碼
+    - **str** message: 訊息
+    - **object** data: 生成的 QR code 資料
+      - **str** qr_token: 生成的 QR code 圖片的 base64 編碼字符串
+    """
+    response.status_code, return_response = await qr_code_controller.get_info(
+        qr_info_request.qr_token
     )
     return return_response
