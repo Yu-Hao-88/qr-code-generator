@@ -68,3 +68,17 @@ class QRCodeService:
             raise DataNotFoundError(message="QR code not found")
 
         return QRInfo(**result)
+
+    async def update(self, qr_token: str, url: str) -> None:
+        """
+        根據提供的 QR code token 更新 QR code 資訊
+
+        Args:
+            qr_token (str): QR code token
+            url (str): 要修改的新 URL
+        """
+        # 更新 QR code 資訊
+        result = await self.__qr_code_repository.update(qr_token, url)
+
+        if not result:
+            raise DataNotFoundError(message="QR code not found")

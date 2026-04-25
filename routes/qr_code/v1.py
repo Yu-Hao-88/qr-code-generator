@@ -8,8 +8,11 @@ from libs.controllers.qr_code.v1 import QRCodeController
 from libs.models.qr_code.v1 import (
     QR_CREATE_RESPONSE_EXAMPLES,
     QR_INFO_RESPONSE_EXAMPLES,
+    QR_UPDATE_RESPONSE_EXAMPLES,
     QRCreateRequest,
     QRInfoRequest,
+    QRUpdateBodyRequest,
+    QRUpdatePathRequest,
 )
 
 # router object
@@ -82,5 +85,38 @@ async def get_qr_info(
     """
     response.status_code, return_response = await qr_code_controller.get_info(
         qr_info_request.qr_token
+    )
+    return return_response
+
+
+@router.put(
+    "/{qr_token}",
+    responses=QR_UPDATE_RESPONSE_EXAMPLES,
+)
+async def update_qr_info(
+    response: Response,
+    qr_update_path_request: Annotated[QRUpdatePathRequest, Path()],
+    qr_update_body_request: QRUpdateBodyRequest,
+    qr_code_controller: QRCodeController = Depends(QRCodeController),
+):
+    """
+    QR code 更新 API
+
+    根據提供的 QR code token 更新 QR code 資訊
+
+    Request:
+    - **object** data: QR code 更新請求資料
+      - **str** qr_token: 要更新的 QR code 的 token (必填)
+      - **str** url: 要修改的新 URL (必填)
+
+
+    Response:
+    - **str** status: 執行狀態 (success / fail)
+    - **int** code: 狀態碼
+    - **str** message: 訊息
+    """
+    response.status_code, return_response = await qr_code_controller.update(
+        qr_update_path_request.qr_token,
+        qr_update_body_request.url,
     )
     return return_response

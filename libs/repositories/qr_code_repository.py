@@ -68,3 +68,28 @@ class QRCodeRepository:
         ).where(UrlMapping.token == qr_token)
         result: Result = await self.__session.execute(stmt)
         return result.mappings().one_or_none()
+
+    async def update(self, qr_token: str, url: str) -> bool:
+        """
+        根據提供的 QR code token 更新 QR code 資訊
+
+        Args:
+            qr_token (str): QR code token
+            url (str): 要修改的新 URL
+
+        Returns:
+            bool: 更新是否成功
+        """
+        # 使用 SELECT ... FOR UPDATE 鎖定資料列，確保在更新過程中不會有其他交易修改同一筆資料
+        stmt = select(UrlMapping).where(UrlMapping.token == qr_token).with_for_update()
+        result: Result = await self.__session.execute(stmt)
+        url_mapping: UrlMapping | None = result.scalar_one_or_none()
+
+        if url_mapping is None:
+            return False
+
+        # 更新 URL 和 updated_at 欄位
+        url_mapping.original_url = url
+        await self.__session.flush()
+
+        return True

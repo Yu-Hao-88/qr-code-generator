@@ -4,6 +4,7 @@ from datetime import datetime
 
 from fastapi import Depends, status
 
+from libs.models.general import ResponseOK
 from libs.models.qr_code.v1 import QRCreateResponse, QRInfoResponse
 from libs.services.qr_code.v1 import QRCodeService
 
@@ -39,3 +40,18 @@ class QRCodeController:
         qr_info = await self.__qr_code_service.get_info(qr_token)
 
         return status.HTTP_200_OK, QRInfoResponse(data=qr_info)
+
+    async def update(self, qr_token: str, url: str) -> tuple[int, dict]:
+        """
+        根據提供的 QR code token 更新 QR code 資訊
+
+        Args:
+            qr_token (str): QR code token
+            url (str): 要修改的新 URL
+
+        Returns:
+            tuple[int, dict]: HTTP 狀態碼和回應資料
+        """
+        await self.__qr_code_service.update(qr_token, url)
+
+        return status.HTTP_200_OK, ResponseOK(message="更新成功")

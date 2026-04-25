@@ -1,10 +1,11 @@
 """QR code 產生器 API /qr/create/v1 的 request body schema 定義"""
 
 from datetime import datetime, timezone
+from typing import Annotated
 from urllib.parse import urlparse, urlunparse
 
 from fastapi import status
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, field_validator
 
 from libs.models.general import (
     ResponseBadRequest,
@@ -19,60 +20,57 @@ MAX_URL_LENGTH = 2048
 DEFAULT_PORTS = {"http": 80, "https": 443}
 
 
+def validate_url(url: str) -> str:
+    """
+    檢查並正規化使用者輸入的 URL。
+
+    驗證項目：去除前後空白、空字串檢查、補上預設 scheme、
+    scheme 白名單、netloc 必填、長度上限。
+    正規化項目：host 轉小寫、移除預設 port、移除 fragment。
+
+    Args:
+        url (str): 使用者輸入的 URL
+
+    Raises:
+        ValueError: URL 為空、scheme 不在白名單、缺少 host 或長度超過上限
+
+    Returns:
+        str: 正規化後的 URL
+    """
+    url = url.strip()
+    if not url:
+        raise ValueError("URL 不可為空")
+
+    if "://" not in url:
+        url = f"{DEFAULT_URL_SCHEME}://{url}"
+
+    parsed = urlparse(url)
+    if parsed.scheme not in ALLOWED_URL_SCHEMES:
+        raise ValueError(f"URL scheme 必須為 {sorted(ALLOWED_URL_SCHEMES)} 之一")
+    if not parsed.hostname:
+        raise ValueError("URL 缺少 host")
+
+    host = parsed.hostname.lower()
+    netloc = host
+    if parsed.port is not None and parsed.port != DEFAULT_PORTS[parsed.scheme]:
+        netloc = f"{host}:{parsed.port}"
+
+    normalized = urlunparse(
+        (parsed.scheme, netloc, parsed.path, parsed.params, parsed.query, "")
+    )
+
+    if len(normalized) > MAX_URL_LENGTH:
+        raise ValueError(f"URL 長度不可超過 {MAX_URL_LENGTH} 字元")
+
+    return normalized
+
+
+ValidatedUrl = Annotated[str, AfterValidator(validate_url)]
+
+
 class QRCreateRequest(BaseModel):
-    url: str = Field(..., title="要生成 QR code 的 URL")
+    url: ValidatedUrl = Field(..., title="要生成 QR code 的 URL")
     expires_at: datetime | None = Field(None, title="QR code 過期時間")
-
-    @field_validator("url")
-    def check_and_process_url(cls, url: str) -> str:
-        """
-        檢查並正規化使用者輸入的 URL。
-
-        驗證項目：去除前後空白、空字串檢查、補上預設 scheme、
-        scheme 白名單、netloc 必填、長度上限。
-        正規化項目：host 轉小寫、移除預設 port、移除 fragment。
-
-        Args:
-            url (str): 使用者輸入的 URL
-
-        Raises:
-            ValueError: URL 為空、scheme 不在白名單、缺少 host 或長度超過上限
-
-        Returns:
-            str: 正規化後的 URL
-        """
-        # 去除空白並檢查空字串
-        url = url.strip()
-        if not url:
-            raise ValueError("URL 不可為空")
-
-        # 沒有 scheme 時補上預設 https
-        if "://" not in url:
-            url = f"{DEFAULT_URL_SCHEME}://{url}"
-
-        # 解析並驗證
-        parsed = urlparse(url)
-        if parsed.scheme not in ALLOWED_URL_SCHEMES:
-            raise ValueError(f"URL scheme 必須為 {sorted(ALLOWED_URL_SCHEMES)} 之一")
-        if not parsed.hostname:
-            raise ValueError("URL 缺少 host")
-
-        # 正規化：host 小寫、移除預設 port
-        host = parsed.hostname.lower()
-        netloc = host
-        if parsed.port is not None and parsed.port != DEFAULT_PORTS[parsed.scheme]:
-            netloc = f"{host}:{parsed.port}"
-
-        # 重新組裝，移除 fragment
-        normalized = urlunparse(
-            (parsed.scheme, netloc, parsed.path, parsed.params, parsed.query, "")
-        )
-
-        # 長度上限（QR code 容量與 DB 欄位考量）
-        if len(normalized) > MAX_URL_LENGTH:
-            raise ValueError(f"URL 長度不可超過 {MAX_URL_LENGTH} 字元")
-
-        return normalized
 
     @field_validator("expires_at")
     def check_expires_at(cls, expires_at: datetime | None) -> datetime | None:
@@ -180,6 +178,43 @@ QR_INFO_RESPONSE_EXAMPLES = generate_response_examples(
             "status_code": status.HTTP_200_OK,
             "response_name": "success",
             "example": QRInfoResponse.model_json_schema()["example"],
+        },
+        {
+            "status_code": status.HTTP_404_NOT_FOUND,
+            "response_name": "not_found",
+            "example": ResponseNotFound.model_json_schema()["example"],
+        },
+    ]
+)
+
+
+class QRUpdatePathRequest(BaseModel):
+    qr_token: str = Field(..., title="要修改的 QR code 的 token")
+
+
+class QRUpdateBodyRequest(BaseModel):
+    url: ValidatedUrl = Field(..., title="要生成 QR code 的 URL")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "url": "https://www.google.com/",
+            }
+        }
+    )
+
+
+QR_UPDATE_RESPONSE_EXAMPLES = generate_response_examples(
+    [
+        {
+            "status_code": status.HTTP_200_OK,
+            "response_name": "success",
+            "example": ResponseOK.model_json_schema()["example"],
+        },
+        {
+            "status_code": status.HTTP_400_BAD_REQUEST,
+            "response_name": "bad_request",
+            "example": ResponseBadRequest.model_json_schema()["example"],
         },
         {
             "status_code": status.HTTP_404_NOT_FOUND,
