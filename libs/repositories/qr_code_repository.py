@@ -48,7 +48,7 @@ class QRCodeRepository:
         )
         self.__session.add(new_mapping)
 
-    async def get_info(self, qr_token: str) -> RowMapping | None:
+    async def get_data_for_info(self, qr_token: str) -> RowMapping | None:
         """
         根據提供的 QR code token 查詢 QR code 資訊
 

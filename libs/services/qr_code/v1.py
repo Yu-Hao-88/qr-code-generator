@@ -1,13 +1,18 @@
 """ "QR code 相關服務"""
 
+import io
 from datetime import datetime
 
+import qrcode
 from fastapi import Depends
 
 from libs.models.qr_code.v1 import QRInfo
 from libs.repositories.qr_code_repository import QRCodeRepository
+from libs.utils.api_config import ApiConfig
 from libs.utils.exceptions import DataNotFoundError
 from libs.utils.generate_token import generate_token
+
+REDIRECT_URL_TEMPLATE = "{base_url}/api/redirect/v1/{qr_token}"
 
 MAX_TRIES = 5
 
@@ -62,7 +67,7 @@ class QRCodeService:
         Returns:
             QRInfo: QR code 資訊
         """
-        result = await self.__qr_code_repository.get_info(qr_token)
+        result = await self.__qr_code_repository.get_data_for_info(qr_token)
 
         if result is None:
             raise DataNotFoundError(message="QR code not found")
@@ -95,3 +100,33 @@ class QRCodeService:
 
         if not result:
             raise DataNotFoundError(message="QR code not found")
+
+    async def get_image(self, qr_token: str) -> bytes:
+        """
+        根據提供的 QR code token 產生 QR code 圖片
+
+        Args:
+            qr_token (str): QR code token
+
+        Returns:
+            bytes: QR code PNG 圖片的 bytes
+        """
+        # 查詢 QR code 資訊，確認 QR code 是否存在
+        result = await self.__qr_code_repository.get_data_for_info(qr_token)
+        if result is None:
+            raise DataNotFoundError(message="QR code not found")
+
+        # 產生 QR code 圖片
+        redirect_url = REDIRECT_URL_TEMPLATE.format(
+            base_url=ApiConfig.BASE_URL, qr_token=qr_token
+        )
+        qr = qrcode.QRCode()
+        qr.add_data(redirect_url)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white")
+
+        # 產生 PNG 圖片的 bytes
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+
+        return buf.getvalue()

@@ -5,6 +5,7 @@ set -o errexit
 
 docker rmi qr_code_generator || true
 docker build . -t qr_code_generator
+docker stop qr_code_generator_c || true
 docker rm qr_code_generator_c || true
 docker run --rm \
 	-v .:/app \

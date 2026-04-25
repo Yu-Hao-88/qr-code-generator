@@ -7,7 +7,6 @@ import traceback
 
 import uvicorn
 import uvloop
-from configobj import ConfigObj
 from fastapi import FastAPI, Request, Response, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -15,6 +14,7 @@ from fastapi.responses import JSONResponse
 import context
 import libs.models.general as general_models
 import libs.utils.exceptions as custom_exc
+from libs.utils.api_config import ApiConfig
 from routes.qr_code.v1 import router as qr_code_router
 from routes.redirect.v1 import router as redirect_router
 
@@ -31,14 +31,10 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 
-config = ConfigObj(f"{context.PROJECT_ROOT_PATH}/configs/api.ini", encoding="utf-8")[
-    "API"
-]
-
 
 app = FastAPI(
     title="QR Code Generator API",
-    docs_url=config["docs_url"],
+    docs_url=ApiConfig.DOCS_URL,
 )
 
 
@@ -163,9 +159,9 @@ if __name__ == "__main__":
     # start web API service
     uvicorn.run(
         "main:app",
-        host=config["host"],
-        port=int(config["port"]),
-        reload=(config.as_bool("reload")),
-        workers=int(config.get("workers", 1)),
+        host=ApiConfig.HOST,
+        port=ApiConfig.PORT,
+        reload=ApiConfig.RELOAD,
+        workers=ApiConfig.WORKERS,
         http="httptools",
     )

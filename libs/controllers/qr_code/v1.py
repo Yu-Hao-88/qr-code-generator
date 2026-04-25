@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from fastapi import Depends, status
+from fastapi import Depends, Response, status
 
 from libs.models.general import ResponseOK
 from libs.models.qr_code.v1 import QRCreateResponse, QRInfoResponse
@@ -69,3 +69,17 @@ class QRCodeController:
         await self.__qr_code_service.delete(qr_token)
 
         return status.HTTP_200_OK, ResponseOK(message="刪除成功")
+
+    async def get_image(self, qr_token: str) -> tuple[int, Response]:
+        """
+        根據提供的 QR code token 查詢 QR code 照片
+
+        Args:
+            qr_token (str): QR code token
+
+        Returns:
+            tuple[int, Response]: HTTP 狀態碼和 PNG 圖片 Response
+        """
+        image_bytes = await self.__qr_code_service.get_image(qr_token)
+
+        return status.HTTP_200_OK, Response(content=image_bytes, media_type="image/png")

@@ -8,10 +8,12 @@ from libs.controllers.qr_code.v1 import QRCodeController
 from libs.models.qr_code.v1 import (
     QR_CREATE_RESPONSE_EXAMPLES,
     QR_DELETE_RESPONSE_EXAMPLES,
+    QR_IMAGE_RESPONSE_EXAMPLES,
     QR_INFO_RESPONSE_EXAMPLES,
     QR_UPDATE_RESPONSE_EXAMPLES,
     QRCreateRequest,
     QRDeletePathRequest,
+    QRImageRequest,
     QRInfoRequest,
     QRUpdateBodyRequest,
     QRUpdatePathRequest,
@@ -150,5 +152,32 @@ async def delete_qr_code(
     """
     response.status_code, return_response = await qr_code_controller.delete(
         qr_delete_path_request.qr_token
+    )
+    return return_response
+
+
+@router.get(
+    "/{qr_token}/image",
+    responses=QR_IMAGE_RESPONSE_EXAMPLES,
+)
+async def get_qr_image(
+    response: Response,
+    qr_image_request: Annotated[QRImageRequest, Path()],
+    qr_code_controller: QRCodeController = Depends(QRCodeController),
+):
+    """
+    QR code 圖片查詢 API
+
+    根據提供的 QR code token 查詢 QR code 圖片
+
+    Request:
+    - **object** data: QR code 查詢請求資料
+      - **str** qr_token: 要查詢的 QR code 的 token (必填)
+
+    Response:
+    - **bytes** 圖片二進位資料 (Content-Type: image/png)
+    """
+    response.status_code, return_response = await qr_code_controller.get_image(
+        qr_image_request.qr_token
     )
     return return_response

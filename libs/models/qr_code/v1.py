@@ -243,3 +243,18 @@ QR_DELETE_RESPONSE_EXAMPLES = generate_response_examples(
         },
     ]
 )
+
+
+class QRImageRequest(BaseModel):
+    qr_token: str = Field(..., title="要查詢的 QR code 的 token")
+
+
+QR_IMAGE_RESPONSE_EXAMPLES = generate_response_examples(
+    [
+        {
+            "status_code": status.HTTP_404_NOT_FOUND,
+            "response_name": "not_found",
+            "example": ResponseNotFound.model_json_schema()["example"],
+        },
+    ]
+)

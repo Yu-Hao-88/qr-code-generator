@@ -6,3 +6,4 @@ PROMPT.md
 CLAUDE.md
 /.llm_docs
 /data/qr_code.db
+/configs/api.ini
