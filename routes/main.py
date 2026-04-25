@@ -1,0 +1,139 @@
+"""實作 API 介面"""
+
+import asyncio
+import json
+import logging
+import traceback
+
+import uvicorn
+import uvloop
+from configobj import ConfigObj
+from fastapi import FastAPI, Request, Response, status
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+
+import context
+import libs.models.general as general_models
+from routes.qr_code.v1 import router as qr_code_router
+
+# 改用 uvloop
+asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+policy = asyncio.get_event_loop_policy()
+logging.basicConfig(level=logging.INFO)
+logging.info("Current asyncio event loop policy: %s", policy)
+
+# 新增 router 只需要加在這裡即可，swagger 顯示的順序會和這邊一樣
+all_routers = [qr_code_router]
+
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+)
+
+config = ConfigObj(f"{context.PROJECT_ROOT_PATH}/configs/api.ini", encoding="utf-8")[
+    "API"
+]
+
+
+app = FastAPI(
+    title="QR Code Generator API",
+    docs_url=config["docs_url"],
+)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(
+    request: Request,
+    exc: RequestValidationError,
+) -> JSONResponse:
+    """Override fastapi 422 response"""
+    reasons = []
+    for error in exc.errors():
+        match error["type"]:
+            case "value_error":
+                # 自訂的一些 value error 直接回傳 msg
+                reasons.append(f"loc {error['loc']} {error['msg']}")
+            case "json_invalid":
+                reasons.append("請提供合法的 json")
+            case "missing":
+                reasons.append(f"少了 {error['loc']} 欄位")
+            case "float_type" | "float_parsing":
+                reasons.append(f"loc {error['loc']} 需為浮點數")
+            case "int_type" | "int_parsing" | "int_from_float":
+                reasons.append(f"loc {error['loc']} 需為整數")
+            case "bool_type" | "bool_parsing":
+                reasons.append(f"loc {error['loc']} 需為布林值")
+            case "string_type":
+                reasons.append(f"loc {error['loc']} 需為字串")
+            case "greater_than_equal":
+                reasons.append(
+                    f"loc {error['loc']} 必須是大於等於 {error['ctx']['ge']}"
+                )
+            case "string_too_long":
+                reasons.append(
+                    f"loc {error['loc']} 字串長度必須是小於等於 {error['ctx']['max_length']}"
+                )
+            case "enum":
+                reasons.append(
+                    f"loc {error['loc']} 需為 {error['ctx']['expected']} 中的值"
+                )
+    if reasons:
+        message = ", ".join(reasons)
+    else:
+        message = "沒有抓取到的錯誤，請提供 data 中的 request body 以便解析"
+        logging.error("抓取不到的錯誤：%s", exc.errors())
+
+    # 取得並解析 request body
+    body_bytes = await request.body()
+    body_str = body_bytes.decode("utf-8")
+    try:
+        body_json = json.loads(body_str) if body_str else {}
+        logging.info("RequestValidationError Body: %s", body_json)
+    except json.JSONDecodeError:
+        body_json = {}
+        logging.info("RequestValidationError Body: %s", body_str)
+
+    return JSONResponse(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        content=general_models.ResponseBadRequest(
+            message=message,
+            data=body_json,
+        ).model_dump(),
+    )
+
+
+@app.exception_handler(Exception)
+async def internal_server_error_handler(
+    request: Request,
+    exc: Exception,
+) -> JSONResponse:
+    """捕捉所有非預期例外，統一回傳 HTTP 500"""
+    logging.error(traceback.format_exc())
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content=general_models.ResponseInternalServerError().model_dump(),
+    )
+
+
+@app.get("/")
+def homepage(response: Response):
+    """Homepage"""
+    response.status_code = status.HTTP_200_OK
+    return response.status_code
+
+
+# add router
+for route in all_routers:
+    # /receiveSale 為服務名稱 固定在最前面
+    app.include_router(route)
+
+
+if __name__ == "__main__":
+    # start web API service
+    uvicorn.run(
+        "main:app",
+        host=config["host"],
+        port=int(config["port"]),
+        reload=(config.as_bool("reload")),
+        workers=int(config.get("workers", 1)),
+        http="httptools",
+    )
