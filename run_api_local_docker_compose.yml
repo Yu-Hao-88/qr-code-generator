@@ -1,0 +1,22 @@
+name: qr-code-generator API - Local Docker Compose
+
+services:
+  redis:
+    image: redis
+    ports:
+      - "6379:6379"
+    command: ["redis-server"]
+
+  api:
+    build:
+      context: .
+    image: qr_code_generator
+    depends_on:
+      - redis
+    ports:
+      - "8000:8000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - .:/app
+    command: ["python", "routes/main.py"]
