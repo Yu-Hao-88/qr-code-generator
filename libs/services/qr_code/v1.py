@@ -1,4 +1,4 @@
-""" "QR code 相關服務"""
+"""QR code 相關服務"""
 
 import base64
 import io

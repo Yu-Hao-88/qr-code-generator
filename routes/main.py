@@ -10,11 +10,14 @@ import uvloop
 from fastapi import FastAPI, Request, Response, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 import context
 import libs.models.general as general_models
 import libs.utils.exceptions as custom_exc
 from libs.utils.api_config import ApiConfig
+from libs.utils.limiter import RateLimiter
 from routes.qr_code.v1 import router as qr_code_router
 from routes.redirect.v1 import router as redirect_router
 
@@ -36,6 +39,8 @@ app = FastAPI(
     title="QR Code Generator API",
     docs_url=ApiConfig.DOCS_URL,
 )
+app.state.limiter = RateLimiter.limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
 @app.exception_handler(RequestValidationError)

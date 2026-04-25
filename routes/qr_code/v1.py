@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path, Response
+from fastapi import APIRouter, Depends, Path, Request, Response
 
 from libs.controllers.qr_code.v1 import QRCodeController
 from libs.models.qr_code.v1 import (
@@ -18,6 +18,7 @@ from libs.models.qr_code.v1 import (
     QRUpdateBodyRequest,
     QRUpdatePathRequest,
 )
+from libs.utils.limiter import RATE_LIMITER
 
 # router object
 router = APIRouter(prefix="/api/qr_code/v1", tags=["qr_code"])
@@ -60,7 +61,9 @@ async def create_qr_code(
     "/{qr_token}",
     responses=QR_INFO_RESPONSE_EXAMPLES,
 )
+@RATE_LIMITER.limiter.limit("30/minute")
 async def get_qr_info(
+    request: Request,
     response: Response,
     qr_info_request: Annotated[QRInfoRequest, Path()],
     qr_code_controller: QRCodeController = Depends(QRCodeController),
@@ -160,7 +163,9 @@ async def delete_qr_code(
     "/{qr_token}/image",
     responses=QR_IMAGE_RESPONSE_EXAMPLES,
 )
+@RATE_LIMITER.limiter.limit("30/minute")
 async def get_qr_image(
+    request: Request,
     response: Response,
     qr_image_request: Annotated[QRImageRequest, Path()],
     qr_code_controller: QRCodeController = Depends(QRCodeController),
