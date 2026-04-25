@@ -73,7 +73,12 @@ async def get_qr_info(
     - **int** code: 狀態碼
     - **str** message: 訊息
     - **object** data: 生成的 QR code 資料
-      - **str** qr_token: 生成的 QR code 圖片的 base64 編碼字符串
+        - **str** token: QR code token
+        - **str** original_url: QR code 對應的原始 URL
+        - **datetime** created_at: QR code 生成時間
+        - **datetime** updated_at: QR code 最後更新時間
+        - **Optional[datetime]** expires_at: QR code 過期時間 (若有設定)
+        - **bool** is_deleted: QR code 是否已刪除
     """
     response.status_code, return_response = await qr_code_controller.get_info(
         qr_info_request.qr_token
