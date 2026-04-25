@@ -16,6 +16,7 @@ import context
 import libs.models.general as general_models
 import libs.utils.exceptions as custom_exc
 from routes.qr_code.v1 import router as qr_code_router
+from routes.redirect.v1 import router as redirect_router
 
 # 改用 uvloop
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
@@ -24,7 +25,7 @@ logging.basicConfig(level=logging.INFO)
 logging.info("Current asyncio event loop policy: %s", policy)
 
 # 新增 router 只需要加在這裡即可，swagger 顯示的順序會和這邊一樣
-all_routers = [qr_code_router]
+all_routers = [qr_code_router, redirect_router]
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
@@ -124,6 +125,21 @@ async def data_not_found_error_handler(
     return JSONResponse(
         status_code=status.HTTP_404_NOT_FOUND,
         content=general_models.ResponseNotFound(
+            message=exc.message,
+            code=exc.code,
+        ).model_dump(),
+    )
+
+
+@app.exception_handler(custom_exc.DataGoneError)
+async def data_gone_error_handler(
+    request: Request,
+    exc: custom_exc.DataGoneError,
+) -> JSONResponse:
+    """捕捉共用例外 DataGoneError，統一回傳 HTTP 410"""
+    return JSONResponse(
+        status_code=status.HTTP_410_GONE,
+        content=general_models.ResponseGone(
             message=exc.message,
             code=exc.code,
         ).model_dump(),

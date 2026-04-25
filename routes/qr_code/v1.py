@@ -18,7 +18,7 @@ from libs.models.qr_code.v1 import (
 )
 
 # router object
-router = APIRouter(prefix="/api/qr_code/v1")
+router = APIRouter(prefix="/api/qr_code/v1", tags=["qr_code"])
 
 
 @router.post(

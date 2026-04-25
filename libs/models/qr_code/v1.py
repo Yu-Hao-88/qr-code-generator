@@ -1,4 +1,4 @@
-"""QR code 產生器 API /qr/create/v1 的 request body schema 定義"""
+"""QR code 產生器 API /qr_code/v1 的 schema 定義"""
 
 from datetime import datetime, timezone
 from typing import Annotated
