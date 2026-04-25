@@ -1,6 +1,7 @@
 [API]
 host=0.0.0.0
 port=8000
+base_url=http://localhost:8000
 # /docs or 留空白
 docs_url=/docs
 # 填寫 True or False
